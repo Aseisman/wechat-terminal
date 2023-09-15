@@ -3,6 +3,10 @@ const Wechat = require("wechat4u");
 let bot;
 try {
   bot = new Wechat(require("../sync-data.json"));
+  // 心跳目标，设置为空，不增加心跳
+  bot.setPollingTargetGetter(function () {
+    return;
+  });
 } catch (e) {
   bot = new Wechat();
 }

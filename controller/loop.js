@@ -7,20 +7,31 @@ let reader = readline.createInterface({
 });
 
 let ToUserName = "";
+let DisplayName = "";
 function initLoop(bot) {
   // 接收消息
   bot.on("message", (msg) => {
     const fromName = bot.contacts[msg.FromUserName].getDisplayName();
-    const toName = bot.contacts[msg.ToUserName].getDisplayName();
+    let toName;
+    try {
+      toName = bot.contacts[msg.ToUserName].getDisplayName();
+    } catch (error) {
+      console.log(msg.ToUserName);
+      console.log(bot.contacts[msg.ToUserName]);
+    }
+
     const time = msg.getDisplayTime();
     const fileName = msg.isSendBySelf
       ? "./message/" + toName + ".txt"
       : "./message/" + fromName + ".txt";
 
-    const needHide =
-      bot.contacts[msg.ToUserName].isRoomContact &&
-      bot.contacts[msg.ToUserName].Statues == 0;
-    const log = (sth) => needHide && console.log(sth);
+    // const needHide = false;
+    //   !msg.FromUserName.startsWith('@@') &&
+    //   bot.contacts[msg.ToUserName].Statues == 0;
+    const needHide = bot.Contact.isRoomContact(bot.contacts[msg.FromUserName]) &&
+        bot.contacts[msg.FromUserName].Statues == CONF.CHATROOM_NOTIFY_CLOSE;
+
+    const log = (...sth) => !needHide && console.log(...sth);
 
     log(`----------${time}----------`);
     log(fromName, `UserName:${msg.FromUserName}`);
@@ -156,6 +167,7 @@ function initLoop(bot) {
         try {
           ToUserName = words[1];
           let name = bot.contacts[ToUserName].getDisplayName();
+          DisplayName = name;
           console.log("当前聊天对象为：", name);
         } catch (error) {
           ToUserName = "";
@@ -171,17 +183,19 @@ function initLoop(bot) {
         reader.close();
         break;
       case "text":
-        // text 你是不是傻子啊
+        // text 你是不是傻子啊        
         bot.sendMsg(words[1], ToUserName).catch((err) => {
           bot.emit("error", err);
         });
+        DisplayName = DisplayName || bot.contacts[ToUserName].getDisplayName();
+        fs.appendFileSync("./message/" + DisplayName + ".txt", `${DisplayName}(${new Date().format("yy-MM-dd")}):${words[1]}\n`);
         break;
       case "photo":
         // photo ./media/xxx.png
         try {
           let file = fs.createReadStream(words[1]);
-          let urls = words[1].split('/');
-          let filename = urls[urls.length-1];
+          let urls = words[1].split("/");
+          let filename = urls[urls.length - 1];
           console.log(filename);
           bot
             .setMsg(
@@ -195,7 +209,7 @@ function initLoop(bot) {
               bot.emit("error", err);
             });
         } catch (error) {
-            console.log('找不到图片，请重新选择');
+          console.log("找不到图片，请重新选择");
         }
         break;
       default:

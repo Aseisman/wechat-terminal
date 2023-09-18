@@ -1,5 +1,6 @@
 const fs = require("fs");
 const readline = require("readline");
+const clipboardy = require("clipboardy");
 
 let reader = readline.createInterface({
   input: process.stdin,
@@ -25,13 +26,16 @@ function initLoop(bot) {
       ? "./message/" + toName + ".txt"
       : "./message/" + fromName + ".txt";
 
-    // const needHide = false;
-    //   !msg.FromUserName.startsWith('@@') &&
-    //   bot.contacts[msg.ToUserName].Statues == 0;
-    const needHide = bot.Contact.isRoomContact(bot.contacts[msg.FromUserName]) &&
-        bot.contacts[msg.FromUserName].Statues == CONF.CHATROOM_NOTIFY_CLOSE;
+    // 如果是 群聊已屏蔽的 or 是自己发送的，则隐藏消息；
+    const needHide =
+      (bot.Contact.isRoomContact(bot.contacts[msg.FromUserName]) &&
+        bot.contacts[msg.FromUserName].Statues ==
+          bot.CONF.CHATROOM_NOTIFY_CLOSE) ||
+      msg.isSendBySelf;
 
     const log = (...sth) => !needHide && console.log(...sth);
+
+    if (bot.Contact.isPublicContact(bot.contacts[msg.FromUserName])) return; //屏蔽公众号消息
 
     log(`----------${time}----------`);
     log(fromName, `UserName:${msg.FromUserName}`);
@@ -155,22 +159,42 @@ function initLoop(bot) {
   // 监听消息
   reader.on("line", function (line) {
     let words = line.trim().split(" ");
+
     if (!words.length) return console.log("请重新输入");
+    
     if (
       !["chat", "unchat", "logout", "close"].includes(words[0]) &&
       !ToUserName
     ) {
       return console.log("先选择当前聊天对象");
     }
+
     switch (words[0]) {
       case "chat": //选择聊天对象
         try {
-          ToUserName = words[1];
-          let name = bot.contacts[ToUserName].getDisplayName();
-          DisplayName = name;
-          console.log("当前聊天对象为：", name);
+          if (/^@/.test(words[1])) {
+            // 是ToUserName
+            ToUserName = words[1];
+            let name = bot.contacts[ToUserName].getDisplayName();
+            DisplayName = name;
+          } else {
+            // 是微信名称or微信备注
+            DisplayName = words[1];
+            let name = Object.keys(bot.contacts).find((key) => {
+              const {
+                DisplayName: dn,
+                RemarkName,
+                NickName,
+              } = bot.contacts[key];
+              return [dn, RemarkName, NickName].includes(DisplayName);
+            });
+            if (!name) return console.log("聊天对象有误，请重新选择聊天对象");
+            ToUserName = name;
+          }
+          console.log("当前聊天对象为：", DisplayName);
         } catch (error) {
           ToUserName = "";
+          DisplayName = "";
           console.log("聊天对象有误，请重新选择聊天对象");
         }
         break;
@@ -183,12 +207,17 @@ function initLoop(bot) {
         reader.close();
         break;
       case "text":
-        // text 你是不是傻子啊        
+        // text 你是不是傻子啊
         bot.sendMsg(words[1], ToUserName).catch((err) => {
           bot.emit("error", err);
         });
         DisplayName = DisplayName || bot.contacts[ToUserName].getDisplayName();
-        fs.appendFileSync("./message/" + DisplayName + ".txt", `${DisplayName}(${new Date().format("yy-MM-dd")}):${words[1]}\n`);
+        fs.appendFileSync(
+          "./message/" + DisplayName + ".txt",
+          `我(${new Date().toLocaleDateString().split("/").join(":")}):${
+            words[1]
+          }\n`
+        );
         break;
       case "photo":
         // photo ./media/xxx.png
@@ -212,11 +241,16 @@ function initLoop(bot) {
           console.log("找不到图片，请重新选择");
         }
         break;
+      case "getCC":
+        clipboardy.writeSync(JSON.stringify(bot.contacts[ToUserName]));
+        console.log("已复制到剪贴板");
+        break;
       default:
         console.log("没有找到命令！");
         break;
     }
   });
+  
   setTimeout(() => {
     console.log("===============");
     console.log(

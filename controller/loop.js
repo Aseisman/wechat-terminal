@@ -1,14 +1,15 @@
 const fs = require("fs");
 const readline = require("readline");
 const clipboardy = require("clipboardy");
+const { showImg } = require("./showImg");
 
 let reader = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
-
 let ToUserName = "";
 let DisplayName = "";
+
 function initLoop(bot) {
   // 接收消息
   bot.on("message", (msg) => {
@@ -21,19 +22,27 @@ function initLoop(bot) {
       console.log(bot.contacts[msg.ToUserName]);
     }
 
+    const log = (...sth) => !needHide && console.log(...sth);
+    const checkNeedHide = () => {
+      // 如果 不是特定的几个想展示的群消息，则隐藏消息；
+      // 如果是 群聊已屏蔽的 or 是自己发送的，则隐藏消息；
+      const isRoom =
+        bot.Contact.isRoomContact(bot.contacts[msg.FromUserName]) &&
+        bot.contacts[msg.FromUserName].Statues ==
+          bot.CONF.CHATROOM_NOTIFY_CLOSE;
+
+      if (isRoom && showMsgNames.includes(fromName)) return false;
+      else if (isRoom) return true;
+      else if (msg.isSendBySelf) return true;
+      else return false;
+    };
+
     const time = msg.getDisplayTime();
     const fileName = msg.isSendBySelf
       ? "./message/" + toName + ".txt"
       : "./message/" + fromName + ".txt";
-
-    // 如果是 群聊已屏蔽的 or 是自己发送的，则隐藏消息；
-    const needHide =
-      (bot.Contact.isRoomContact(bot.contacts[msg.FromUserName]) &&
-        bot.contacts[msg.FromUserName].Statues ==
-          bot.CONF.CHATROOM_NOTIFY_CLOSE) ||
-      msg.isSendBySelf;
-
-    const log = (...sth) => !needHide && console.log(...sth);
+    const showMsgNames = [];
+    const needHide = checkNeedHide();
 
     if (bot.Contact.isPublicContact(bot.contacts[msg.FromUserName])) return; //屏蔽公众号消息
 
@@ -62,6 +71,7 @@ function initLoop(bot) {
               `./media/${fromName + "-" + msg.MsgId}.jpg`,
               res.data
             );
+            !needHide && showImg(`./media/${fromName + "-" + msg.MsgId}.jpg`);
           })
           .catch((err) => {
             bot.emit("error", err);
@@ -104,6 +114,7 @@ function initLoop(bot) {
               `./media/${fromName + "-" + msg.MsgId}.gif`,
               res.data
             );
+            !needHide && showImg(`./media/${fromName + "-" + msg.MsgId}.gif`);
           })
           .catch((err) => {
             bot.emit("error", err);
@@ -161,7 +172,7 @@ function initLoop(bot) {
     let words = line.trim().split(" ");
 
     if (!words.length) return console.log("请重新输入");
-    
+
     if (
       !["chat", "unchat", "logout", "close"].includes(words[0]) &&
       !ToUserName
@@ -227,7 +238,7 @@ function initLoop(bot) {
           let filename = urls[urls.length - 1];
           console.log(filename);
           bot
-            .setMsg(
+            .sendMsg(
               {
                 file,
                 filename,
@@ -235,9 +246,11 @@ function initLoop(bot) {
               ToUserName
             )
             .catch((err) => {
+              console.log(err);
               bot.emit("error", err);
             });
         } catch (error) {
+          console.log(error);
           console.log("找不到图片，请重新选择");
         }
         break;
@@ -250,11 +263,11 @@ function initLoop(bot) {
         break;
     }
   });
-  
+
   setTimeout(() => {
     console.log("===============");
     console.log(
-      "聊天格式为：“操作码：内容”; 例如：“chat:@abcadbs” “text: 这是测试语句”"
+      "聊天格式为：《操作码：内容》; 例如：《chat 小白羊》 《text 这是测试语句》"
     );
     console.log("===============");
   }, 1000);

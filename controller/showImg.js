@@ -1,11 +1,10 @@
-let terminalImage;
+const terminalImage = require('terminal-image');
+const showImg = (data) =>{
+  setTimeout( async () => {
+    console.log(await terminalImage.file(data))    
+  }, 500);
 
-const showImg = async (data) => {
-  !terminalImage && (terminalImage = (await import("terminal-image")).default);
-  terminalImage.file(data).then((res) => {
-    console.log(res);
-  });
-};
+}
 module.exports = {
-  showImg,
-};
+  showImg
+}

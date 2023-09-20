@@ -67,6 +67,7 @@ function initLoop(bot) {
         bot
           .getMsgImg(msg.MsgId)
           .then((res) => {
+            if(!res.data) return console.log('获取不到图片');
             fs.writeFileSync(
               `./media/${fromName + "-" + msg.MsgId}.jpg`,
               res.data
@@ -80,6 +81,7 @@ function initLoop(bot) {
       case bot.CONF.MSGTYPE_VOICE:
         // 语音消息
         log("语音消息，保存到本地");
+        // log("语音消息");
         fs.appendFileSync(
           fileName,
           `${fromName}(${time}):[语音](${
@@ -190,17 +192,17 @@ function initLoop(bot) {
             DisplayName = name;
           } else {
             // 是微信名称or微信备注
-            DisplayName = words[1];
             let name = Object.keys(bot.contacts).find((key) => {
               const {
                 DisplayName: dn,
                 RemarkName,
                 NickName,
               } = bot.contacts[key];
-              return [dn, RemarkName, NickName].includes(DisplayName);
+              return [dn, RemarkName, NickName].includes(words[1]);
             });
             if (!name) return console.log("聊天对象有误，请重新选择聊天对象");
             ToUserName = name;
+            DisplayName = bot.contacts[ToUserName].getDisplayName();
           }
           console.log("当前聊天对象为：", DisplayName);
         } catch (error) {

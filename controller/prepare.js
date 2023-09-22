@@ -9,7 +9,7 @@ try {
 
 // 心跳目标，设置为空，不增加心跳
 bot.setPollingTargetGetter(function () {
-  return false;
+  return "";//返回值必须是个字符串
 });
 
 if (bot.PROP.uin) {
